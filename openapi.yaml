@@ -173,6 +173,26 @@ components:
         usuarioId:
           type: string
           format: uuid
+    
+    EstadoPerfil: # <-- AÑADIDO
+      type: object
+      properties:
+        isComplete:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: "Completa tu perfil para un cálculo de hidratación más preciso."
+
+    ResumenDiario: # <-- AÑADIDO
+      type: object
+      properties:
+        consumidoMl:
+          type: integer
+          example: 1201
+        objetivoMl:
+          type: integer
+          example: 1264
 
 paths:
   /auth/registro:
@@ -318,6 +338,24 @@ paths:
         '401':
           description: No autorizado.
 
+  /perfil/estado-calculo:
+    get:
+      summary: Obtener estado de completitud del perfil
+      tags:
+        - Perfil de Usuario
+      description: Verifica si el usuario ha llenado los datos (peso, altura, género, edad) necesarios para el cálculo de hidratación avanzado (Mifflin-St Jeor).
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Estado de completitud del perfil.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EstadoPerfil'
+        '401':
+          description: No autorizado.
+
 # --- Bebidas (Nuevas rutas) ---
   /bebidas:
     get:
@@ -445,3 +483,21 @@ paths:
           description: No autorizado.
         '404':
           description: Usuario no encontrado.
+# --- Resumen (Nuevo) ---
+  /resumen/hoy: # <-- AÑADIDO
+    get:
+      summary: Obtener el resumen de la pantalla principal
+      tags:
+        - Resumen (Home)
+      description: Devuelve el total de ml consumidos hoy vs el objetivo de ml del día. Es el endpoint principal para el dashboard.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Resumen del día.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResumenDiario'
+        '401':
+          description: No autorizado.

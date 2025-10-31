@@ -1,5 +1,6 @@
 // src/utils/hydration.utils.ts
 import { Usuario } from '@prisma/client';
+import { prisma } from '../lib/prisma';
 
 const calcularEdad = (fechaNacimiento: Date): number => {
   const hoy = new Date();
@@ -90,19 +91,63 @@ export const calcularObjetivoHidratacion = (
   }
 
   // --- Estrategia de Fallback: Cálculo Simple ---
-  // (Si no teníamos datos completos o si la fórmula científica falló)
+  if (!tieneDatosCompletos) {
+    console.warn(`Usuario ${perfil.id} no tiene perfil completo (o género 'Otro'), usando cálculo simple.`);
+  }
 
-  console.warn(`Usuario ${perfil.id} no tiene perfil completo, usando cálculo simple.`);
 
   if (pesoKg && pesoKg > 0) {
     const basePorPeso = pesoKg * 30; // 30ml por kg de peso
     const nivelKey = nivelActividad as NivelActividadKey;
     const bonoActividad = BONO_ACTIVIDAD_SIMPLE[nivelKey] || 0;
-    
     return Math.round(basePorPeso + bonoActividad);
   }
 
   // --- Default Final ---
   // Si no tenemos ni siquiera el peso
   return 2000; // Default de 2000ml
+};
+
+/**
+ * --- ¡NUEVA FUNCIÓN REUTILIZABLE! ---
+ * Obtiene o crea el objetivo diario para un usuario.
+ * Usado por /api/objetivo/hoy y /api/resumen/hoy
+ */
+export const getOrCreateDailyObjective = async (usuarioId: string) => {
+  // 1. Obtener el perfil del usuario (necesario para el cálculo)
+  const usuario = await prisma.usuario.findUnique({
+    where: { id: usuarioId },
+  });
+
+  if (!usuario) {
+    // Esto no debería pasar si el usuario está autenticado, pero es un buen control
+    throw new Error('Usuario no encontrado para cálculo de objetivo.');
+  }
+
+  // 2. Definir el día de hoy (en UTC)
+  const hoy = new Date();
+  hoy.setUTCHours(0, 0, 0, 0);
+
+  // 3. Buscar un objetivo existente para hoy
+  let objetivo = await prisma.objetivoHidratacion.findFirst({
+    where: {
+      usuarioId,
+      fecha: hoy,
+    },
+  });
+
+  // 4. Si no existe, lo creamos
+  if (!objetivo) {
+    const cantidadMl = calcularObjetivoHidratacion(usuario);
+    
+    objetivo = await prisma.objetivoHidratacion.create({
+      data: {
+        usuarioId,
+        fecha: hoy,
+        cantidadMl,
+      },
+    });
+  }
+  
+  return objetivo;
 };

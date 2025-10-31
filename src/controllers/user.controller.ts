@@ -130,3 +130,50 @@ export const updateProfileController = async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Error interno del servidor.' });
   }
 };
+
+/**
+ * Verifica si el perfil está completo para el cálculo avanzado.
+ * GET /api/perfil/estado-calculo
+ */
+export const getProfileStatusController = async (req: Request, res: Response) => {
+  try {
+    const usuarioId = req.user?.id!;
+    const usuario = await prisma.usuario.findUnique({
+      where: { id: usuarioId },
+      select: {
+        pesoKg: true,
+        alturaCm: true,
+        fechaNacimiento: true,
+        genero: true,
+      },
+    });
+
+    if (!usuario) {
+      return res.status(404).json({ error: 'Usuario no encontrado.' });
+    }
+
+    // Verificamos los campos necesarios para la fórmula Mifflin-St Jeor
+    const isComplete =
+      usuario.pesoKg &&
+      usuario.pesoKg > 0 &&
+      usuario.alturaCm &&
+      usuario.alturaCm > 0 &&
+      usuario.fechaNacimiento &&
+      (usuario.genero === 'Masculino' || usuario.genero === 'Femenino');
+    
+    if (isComplete) {
+      return res.status(200).json({
+        isComplete: true,
+        message: 'Tu perfil está completo. Usando cálculo de precisión.',
+      });
+    }
+
+    return res.status(200).json({
+      isComplete: false,
+      message: 'Completa tu perfil para un cálculo de hidratación más preciso.',
+    });
+  } catch (error) {
+    console.error('Error al verificar estado de perfil:', error);
+    res.status(500).json({ error: 'Error interno del servidor.' });
+  }
+};
