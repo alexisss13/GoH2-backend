@@ -13,7 +13,12 @@
     "prisma:migrate": "npx prisma migrate dev",
     "prisma:studio": "npx prisma studio",
     "prisma:seed": "npx ts-node prisma/seed.ts",
+    "postinstall": "npx prisma generate",
+    "prisma:migrate:deploy": "npx prisma migrate deploy",
     "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "engines": {
+    "node": "20.x"
   },
   "dependencies": {
     "@prisma/client": "^6.18.0",

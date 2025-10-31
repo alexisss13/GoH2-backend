@@ -19,6 +19,12 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+const corsOptions = {
+  // Si estamos en producción, solo permite el origen del frontend
+  // Si estamos en desarrollo (FRONTEND_URL no está), permite cualquiera (para pruebas locales)
+  origin: process.env.FRONTEND_URL ? process.env.FRONTEND_URL : '*',
+};
+
 // Middlewares de seguridad básicos
 app.use(
   helmet({
@@ -38,7 +44,7 @@ app.use(
 );
 
 
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // --- Documentación (ReDoc) ---
@@ -64,7 +70,7 @@ app.use('/api/objetivo', objetivoRoutes); // Rutas de objetivo de hidratación
 app.get('/api', (req: Request, res: Response) => {
   res.status(200).json({
     message: 'Bienvenido a la API de GoH2',
-    documentacion: `http://localhost:${PORT}/api/docs`,
+    documentacion: `/api/docs`,
     status: 'ok',
     timestamp: new Date().toISOString(),
   });
@@ -75,9 +81,11 @@ async function main() {
   try {
     app.listen(PORT, () => {
       console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
-      console.log(
-        `📚 Documentación disponible en http://localhost:${PORT}/api/docs`,
-      );
+    if (!process.env.FRONTEND_URL) {
+        console.log(
+          `📚 Documentación disponible en http://localhost:${PORT}/api/docs`,
+        );
+      }
     });
   } catch (error) {
     console.error('No se pudo iniciar el servidor:', error);
