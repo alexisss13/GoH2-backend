@@ -1,0 +1,447 @@
+openapi: 3.0.0
+info:
+  title: GoH2 API
+  description: API backend para la aplicación de seguimiento de hidratación GoH2.
+  version: 1.0.0
+servers:
+  - url: /api
+    description: Servidor de desarrollo local
+
+# Definición de la seguridad
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Usuario:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        nombre:
+          type: string
+        fechaNacimiento:
+          type: string
+          format: date-time
+        genero:
+          type: string
+        alturaCm:
+          type: integer
+        pesoKg:
+          type: number
+          format: float
+        nivelActividad:
+          type: string
+          enum: [Sedentario, Ligero, Moderado, Activo, MuyActivo]
+        createdAt:
+          type: string
+          format: date-time
+          
+    ActualizarPerfil:
+      type: object
+      properties:
+        fechaNacimiento:
+          type: string
+          format: date-time
+          example: "1990-01-15T00:00:00.000Z"
+        genero:
+          type: string
+          example: "Masculino"
+        alturaCm:
+          type: integer
+          example: 175
+        pesoKg:
+          type: number
+          format: float
+          example: 72.5
+        nivelActividad:
+          type: string
+          enum: [Sedentario, Ligero, Moderado, Activo, MuyActivo]
+          example: "Moderado"
+    Bebida:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        nombre:
+          type: string
+          example: "Agua"
+        factorHidratacion:
+          type: number
+          format: float
+          description: "Factor para calcular el aporte hídrico (Agua=1.0, Cerveza=0.6)"
+          example: 1.0
+          
+    TipoRegistro:
+      type: string
+      enum: [MANUAL, DIGITAL]
+      example: "MANUAL"
+
+    RegistroBebida:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        cantidadConsumidaMl:
+          type: integer
+          example: 300
+        aporteHidricoMl:
+          type: integer
+          example: 300
+        fechaHora:
+          type: string
+          format: date-time
+        tipoRegistro:
+          $ref: '#/components/schemas/TipoRegistro'
+        usuarioId:
+          type: string
+          format: uuid
+        bebidaId:
+          type: string
+          format: uuid
+    
+    RegistroBebidaDetallado:
+      allOf:
+        - $ref: '#/components/schemas/RegistroBebida'
+        - type: object
+          properties:
+            bebida:
+              type: object
+              properties:
+                nombre:
+                  type: string
+                  example: "Agua"
+
+    CrearRegistro:
+      type: object
+      properties:
+        bebidaId:
+          type: string
+          format: uuid
+          description: "El ID de la bebida seleccionada."
+        cantidadConsumidaMl:
+          type: integer
+          description: "La cantidad que el usuario bebió, ej: 100."
+          example: 100
+        tipoRegistro:
+          $ref: '#/components/schemas/TipoRegistro'
+        fechaHora:
+          type: string
+          format: date-time
+          description: "(Opcional) Para registrar un consumo pasado."
+          example: "2025-10-30T14:30:00.000Z"
+      required:
+        - bebidaId
+        - cantidadConsumidaMl
+        - tipoRegistro
+
+    RespuestaRegistrosDia:
+      type: object
+      properties:
+        totalAporteDia:
+          type: integer
+          description: "Suma total del 'aporteHidricoMl' para el día actual."
+          example: 1201
+        registros:
+          type: array
+          items:
+            $ref: '#/components/schemas/RegistroBebidaDetallado'
+
+# --- NUEVOS ESQUEMAS ---
+    ObjetivoHidratacion:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        fecha:
+          type: string
+          format: date-time
+          description: "El día (en UTC) al que aplica este objetivo."
+        cantidadMl:
+          type: integer
+          description: "Cantidad objetivo en mililitros."
+          example: 1264
+        usuarioId:
+          type: string
+          format: uuid
+
+paths:
+  /auth/registro:
+    post:
+      summary: Registro de un nuevo usuario
+      tags:
+        - Autenticación
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nombre:
+                  type: string
+                  example: "Goh"
+                email:
+                  type: string
+                  format: email
+                  example: "goh.the.bear@example.com"
+                password:
+                  type: string
+                  format: password
+                  example: "supersecret123"
+              required:
+                - nombre
+                - email
+                - password
+      responses:
+        '201':
+          description: Usuario creado exitosamente. (Basado en pantalla 17)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Usuario registrado correctamente."
+        '409':
+          description: El correo electrónico ya ha sido registrado. (Basado en pantalla 18)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Lo sentimos, este correo ya ha sido registrado."
+        '400':
+          description: Datos de entrada inválidos.
+
+  /auth/login:
+    post:
+      summary: Inicio de sesión de usuario
+      tags:
+        - Autenticación
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: "goh.the.bear@example.com"
+                password:
+                  type: string
+                  format: password
+                  example: "supersecret123"
+              required:
+                - email
+                - password
+      responses:
+        '200':
+          description: Inicio de sesión exitoso. Devuelve un token JWT.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Inicio de sesión exitoso."
+                  token:
+                    type: string
+                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        '401':
+          description: Credenciales inválidas (email o contraseña incorrectos).
+        '400':
+          description: Datos de entrada inválidos.
+
+  /perfil:
+    get:
+      summary: Obtener el perfil del usuario autenticado
+      tags:
+        - Perfil de Usuario
+      security:
+        - bearerAuth: [] # <-- Esta ruta requiere JWT
+      responses:
+        '200':
+          description: Datos del perfil del usuario.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Usuario'
+        '401':
+          description: No autorizado (token inválido o no provisto).
+        '404':
+          description: Usuario no encontrado.
+    
+    put:
+      summary: Actualizar el perfil del usuario autenticado
+      tags:
+        - Perfil de Usuario
+      security:
+        - bearerAuth: [] # <-- Esta ruta requiere JWT
+      requestBody:
+        description: Campos del perfil a actualizar (todos opcionales).
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActualizarPerfil'
+      responses:
+        '200':
+          description: Perfil actualizado exitosamente.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Perfil actualizado correctamente."
+                  usuario:
+                    $ref: '#/components/schemas/Usuario'
+        '400':
+          description: Datos de entrada inválidos.
+        '401':
+          description: No autorizado.
+
+# --- Bebidas (Nuevas rutas) ---
+  /bebidas:
+    get:
+      summary: Obtener la lista de todas las bebidas
+      tags:
+        - Bebidas
+      description: Devuelve un array con todas las bebidas disponibles para seleccionar (Agua, Café, Té, etc.).
+      responses:
+        '200':
+          description: Lista de bebidas.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Bebida'
+    
+    post:
+      summary: Crear una nueva bebida (Protegido)
+      tags:
+        - Bebidas
+      description: Permite añadir una nueva bebida al sistema. Requiere autenticación (JWT).
+      security:
+        - bearerAuth: [] # <-- Esta ruta requiere JWT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nombre:
+                  type: string
+                  example: "Té Verde"
+                factorHidratacion:
+                  type: number
+                  format: float
+                  example: 0.95
+              required:
+                - nombre
+      responses:
+        '201':
+          description: Bebida creada exitosamente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Bebida'
+        '401':
+          description: No autorizado.
+        '409':
+          description: Conflicto, la bebida ya existe.
+          
+# --- Registros (Nuevas rutas) ---
+  /registros:
+    get:
+      summary: Obtener registros de bebidas (filtrado por fecha)
+      tags:
+        - Registros
+      description: Devuelve los registros de consumo del usuario. Si no se provee 'fecha', devuelve los del día actual.
+      security:
+        - bearerAuth: [] # Requiere JWT
+# --- AÑADIDO (Parámetro de Query) ---
+      parameters:
+        - in: query
+          name: fecha
+          schema:
+            type: string
+            format: date
+          description: "Fecha para filtrar (YYYY-MM-DD). Si se omite, usa la fecha actual."
+          example: "2025-10-30"
+      responses:
+        '200':
+          description: Registros del día y total.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaRegistrosDia'
+        '401':
+          description: No autorizado.
+    
+    post:
+      summary: Añadir un nuevo registro de bebida
+      tags:
+        - Registros
+      description: Crea un nuevo registro de consumo para el usuario autenticado. El 'aporteHidricoMl' se calcula automáticamente en el backend.
+      security:
+        - bearerAuth: [] # Requiere JWT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CrearRegistro'
+      responses:
+        '201':
+          description: Registro creado exitosamente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistroBebidaDetallado'
+        '400':
+          description: Datos de entrada inválidos.
+        '401':
+          description: No autorizado.
+        '404':
+          description: Bebida no encontrada (ID inválido).
+
+# --- Objetivo (Nuevas rutas) ---
+  /objetivo/hoy:
+    get:
+      summary: Obtener el objetivo de hidratación de hoy
+      tags:
+        - Objetivo
+      description: Obtiene el objetivo de hidratación (en ml) para el usuario autenticado. Si el objetivo para hoy no existe, lo calcula basado en el perfil del usuario, lo guarda y lo devuelve.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Objetivo de hidratación del día.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ObjetivoHidratacion'
+        '401':
+          description: No autorizado.
+        '404':
+          description: Usuario no encontrado.

@@ -1,0 +1,81 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Modelo para el registro de usuarios
+model Usuario {
+  id              String   @id @default(uuid())
+  email           String   @unique
+  nombre          String   
+  passwordHash    String   // Almacenaremos el hash (bcrypt)
+  fechaNacimiento DateTime? 
+  genero          String?   
+  alturaCm        Int?      
+  pesoKg          Float?    
+  nivelActividad  String?   //  (Podríamos usar un Enum aqui)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relaciones
+  registros RegistroBebida[]
+  objetivos ObjetivoHidratacion[]
+}
+
+// Modelo para los tipos de bebidas disponibles
+model Bebida {
+  id    String @id @default(uuid())
+  nombre String @unique // "Agua", "Café", "Té", etc.
+  
+  // El factor para calcular el aporte hídrico real.
+  // Basado en "100 ml de aporte hídrico" para "100 ml" de "Agua" 
+  // Agua = 1.0, otras bebidas pueden tener factores diferentes.
+  factorHidratacion Float    @default(1.0)
+  
+  // Relación
+  registros         RegistroBebida[]
+}
+
+// Modelo para los registros de consumo de bebidas 
+model RegistroBebida {
+  id                  String       @id @default(uuid())
+  cantidadConsumidaMl Int          // Ej: 100ml 
+  aporteHidricoMl     Int          // Ej: 100ml  (Calculado: cantidadConsumidaMl * bebida.factorHidratacion)
+  fechaHora           DateTime     @default(now()) // 
+  tipoRegistro        TipoRegistro // "Manual" o "Digital" 
+
+  // Relación con Usuario
+  usuarioId String
+  usuario   Usuario @relation(fields: [usuarioId], references: [id])
+
+  // Relación con Bebida
+  bebidaId String
+  bebida   Bebida @relation(fields: [bebidaId], references: [id])
+
+  @@index([usuarioId, fechaHora])
+}
+
+// Modelo para el objetivo de hidratación diario 
+model ObjetivoHidratacion {
+  id         String   @id @default(uuid())
+  fecha      DateTime @db.Date // El día específico del objetivo
+  cantidadMl Int      // Ej: 1264 ml 
+
+  // Relación con Usuario
+  usuarioId String
+  usuario   Usuario @relation(fields: [usuarioId], references: [id])
+
+  @@unique([usuarioId, fecha]) // Solo un objetivo por usuario por día
+}
+
+enum TipoRegistro {
+  MANUAL
+  DIGITAL
+}
