@@ -2,6 +2,7 @@
 import { Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { calcularObjetivoHidratacion } from '../utils/hydration.utils';
+import { comparePassword } from '../utils/auth.utils';
 
 /**
  * Obtiene el perfil del usuario autenticado
@@ -25,6 +26,7 @@ export const getProfileController = async (req: Request, res: Response) => {
         pesoKg: true,
         nivelActividad: true,
         createdAt: true,
+        unidadMedida: true,
       },
     });
 
@@ -45,7 +47,7 @@ export const getProfileController = async (req: Request, res: Response) => {
  */
 export const updateProfileController = async (req: Request, res: Response) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?.id;    
     if (!userId) {
       return res.status(401).json({ error: 'Usuario no autenticado.' });
     }
@@ -73,9 +75,11 @@ export const updateProfileController = async (req: Request, res: Response) => {
       },
     });
 
-    // Obtenemos el usuario completo actualizado para el cálculo
-    const fullUpdatedUser = await prisma.usuario.findUnique({
-      where: { id: userId }
+
+
+    const fullUpdatedUser = await prisma.usuario.update({
+      where: { id: userId },
+      data: dataToUpdate,
     });
 
     if (!fullUpdatedUser) {
@@ -123,7 +127,7 @@ export const updateProfileController = async (req: Request, res: Response) => {
 
     res.status(200).json({
       message: 'Perfil actualizado correctamente.',
-      usuario: updatedUser,
+      usuario: userResponse,
     });
   } catch (error) {
     console.error('Error al actualizar perfil:', error);
@@ -174,6 +178,48 @@ export const getProfileStatusController = async (req: Request, res: Response) =>
     });
   } catch (error) {
     console.error('Error al verificar estado de perfil:', error);
+    res.status(500).json({ error: 'Error interno del servidor.' });
+  }
+};
+
+/**
+ * --- ¡NUEVO CONTROLADOR! ---
+ * Borra la cuenta del usuario autenticado
+ * DELETE /api/perfil
+ */
+
+export const deleteProfileController = async (req: Request, res: Response) => {
+  try {
+    const { password } = req.body;
+    const usuarioId = req.user?.id!;
+
+    // 1. Obtener el usuario
+    const usuario = await prisma.usuario.findUnique({
+      where: { id: usuarioId },
+    });
+
+    if (!usuario) {
+      return res.status(404).json({ error: 'Usuario no encontrado.' });
+    }
+
+    // 2. Verificar la contraseña
+    const isMatch = await comparePassword(password, usuario.passwordHash);
+
+    if (!isMatch) {
+      return res.status(401).json({ error: 'Contraseña incorrecta. No se puede borrar la cuenta.' });
+    }
+
+    // 3. Borrar el usuario
+    // Gracias al 'onDelete: Cascade' en el schema,
+    // esto borrará todos los registros y objetivos asociados.
+    await prisma.usuario.delete({
+      where: { id: usuarioId },
+    });
+
+    res.status(200).json({ message: 'Cuenta eliminada permanentemente.' });
+    
+  } catch (error) {
+    console.error('Error al borrar cuenta:', error);
     res.status(500).json({ error: 'Error interno del servidor.' });
   }
 };

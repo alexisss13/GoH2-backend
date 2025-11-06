@@ -1,10 +1,16 @@
 // src/validators/user.validator.ts
 import { z } from 'zod';
+import { UnidadMedida } from '@prisma/client';
 
 // Nivel de actividad basado en la pantalla 6 ("Moderado")
 const nivelesActividad = z
   .enum(['Sedentario', 'Ligero', 'Moderado', 'Activo', 'MuyActivo'])
   .or(z.string().refine(() => false, { message: "Nivel de actividad inválido." }));
+
+const unidadMedidaEnum = z.nativeEnum(UnidadMedida).refine(
+  (value) => value === 'ML' || value === 'OZ',
+  "Unidad de medida inválida. Debe ser 'ML' o 'OZ'."
+);
 
 
 export const updateProfileSchema = z.object({
@@ -26,5 +32,13 @@ export const updateProfileSchema = z.object({
     
     // La pantalla 6 pide Nivel de actividad
     nivelActividad: nivelesActividad.optional(),
+    unidadMedida: unidadMedidaEnum.optional(),
+
   }).strict(),// Evita que envíen campos que no esperamos
+});
+
+export const deleteProfileSchema = z.object({
+  body: z.object({
+    password: z.string().nonempty('La contraseña es requerida para borrar la cuenta.'),
+  }),
 });

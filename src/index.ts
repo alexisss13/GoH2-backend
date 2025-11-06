@@ -12,6 +12,7 @@ import bebidaRoutes from './routes/bebida.routes';
 import registroRoutes from './routes/registro.routes';
 import objetivoRoutes from './routes/objetivo.routes';
 import resumenRoutes from './routes/resumen.routes';
+import configuracionRoutes from './routes/configuracion.routes';
 
 
 // Cargar variables de entorno
@@ -67,6 +68,7 @@ app.use('/api/bebidas', bebidaRoutes); // Rutas de bebidas
 app.use('/api/registros', registroRoutes); // Rutas de registros de consumo
 app.use('/api/objetivo', objetivoRoutes); // Rutas de objetivo de hidratación
 app.use('/api/resumen', resumenRoutes); // Rutas de resumen diario
+app.use('/api/configuracion', configuracionRoutes); //Ruta de configuraciones
 
 // Ruta de bienvenida (la movemos para que /api/docs funcione primero)
 app.get('/api', (req: Request, res: Response) => {

@@ -4,10 +4,11 @@ import {
   getProfileController,
   updateProfileController,
   getProfileStatusController,
+  deleteProfileController,
 } from '../controllers/user.controller';
 import { protectRoute } from '../middleware/auth.middleware';
 import { validateRequest } from '../middleware/validateRequest';
-import { updateProfileSchema } from '../validators/user.validator';
+import { updateProfileSchema, deleteProfileSchema, } from '../validators/user.validator';
 
 const router = Router();
 
@@ -25,6 +26,13 @@ router.put(
   '/',
   validateRequest(updateProfileSchema), // Validamos los datos de entrada
   updateProfileController,
+);
+
+// DELETE /api/perfil
+router.delete(
+  '/',
+  validateRequest(deleteProfileSchema), // Valida que venga el password
+  deleteProfileController,
 );
 
 // Para que la app sepa si mostrar el banner de "completa tu perfil"

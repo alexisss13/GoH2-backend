@@ -42,6 +42,11 @@ components:
         createdAt:
           type: string
           format: date-time
+
+    UnidadMedida:
+      type: string
+      enum: [ML, OZ]
+      example: "ML"
           
     ActualizarPerfil:
       type: object
@@ -64,6 +69,22 @@ components:
           type: string
           enum: [Sedentario, Ligero, Moderado, Activo, MuyActivo]
           example: "Moderado"
+        unidadMedida:
+          $ref: '#/components/schemas/UnidadMedida'
+
+    CambiarPassword:
+      type: object
+      properties:
+        passwordActual:
+          type: string
+          format: password
+          example: "miPasswordActual123"
+        passwordNueva:
+          type: string
+          format: password
+          example: "miNuevaPasswordSegura456"
+      required: [passwordActual, passwordNueva]
+
     Bebida:
       type: object
       properties:
@@ -291,8 +312,7 @@ paths:
   /perfil:
     get:
       summary: Obtener el perfil del usuario autenticado
-      tags:
-        - Perfil de Usuario
+      tags: [Perfil de Usuario]
       security:
         - bearerAuth: [] # <-- Esta ruta requiere JWT
       responses:
@@ -309,12 +329,11 @@ paths:
     
     put:
       summary: Actualizar el perfil del usuario autenticado
-      tags:
-        - Perfil de Usuario
+      tags: [Perfil de Usuario]
       security:
         - bearerAuth: [] # <-- Esta ruta requiere JWT
       requestBody:
-        description: Campos del perfil a actualizar (todos opcionales).
+        description: Campos del perfil a actualizar (incluye unidadMedida).
         required: true
         content:
           application/json:
@@ -337,6 +356,32 @@ paths:
           description: Datos de entrada inválidos.
         '401':
           description: No autorizado.
+    
+    delete:
+      summary: Borrar la cuenta del usuario (Protegido)
+      tags: [Perfil de Usuario]
+      description: Borra permanentemente la cuenta del usuario y todos sus datos asociados (registros, objetivos). Requiere la contraseña del usuario para confirmación.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                password:
+                  type: string
+                  format: password
+                  description: "Contraseña actual del usuario para confirmar."
+              required: [password]
+      responses:
+        '200':
+          description: Cuenta eliminada exitosamente.
+        '401':
+          description: Contraseña incorrecta.
+        '404':
+          description: Usuario no encontrado.
 
   /perfil/estado-calculo:
     get:
@@ -501,3 +546,25 @@ paths:
                 $ref: '#/components/schemas/ResumenDiario'
         '401':
           description: No autorizado.
+
+# --- Configuración (Nuevo) ---
+  /configuracion/cambiar-password: # <-- AÑADIDO
+    post:
+      summary: Cambiar la contraseña del usuario (Protegido)
+      tags: [Configuración]
+      description: Permite al usuario autenticado cambiar su contraseña proveyendo la actual y la nueva.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CambiarPassword'
+      responses:
+        '200':
+          description: Contraseña actualizada correctamente.
+        '401':
+          description: La contraseña actual es incorrecta.
+        '400':
+          description: Datos inválidos.

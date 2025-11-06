@@ -8,6 +8,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // Modelo para el registro de usuarios
@@ -15,14 +16,16 @@ model Usuario {
   id              String   @id @default(uuid())
   email           String   @unique
   nombre          String   
-  passwordHash    String   // Almacenaremos el hash (bcrypt)
+  passwordHash    String
   fechaNacimiento DateTime? 
   genero          String?   
   alturaCm        Int?      
   pesoKg          Float?    
-  nivelActividad  String?   //  (Podríamos usar un Enum aqui)
+  nivelActividad  String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+  
+  unidadMedida    UnidadMedida @default(ML)
 
   // Relaciones
   registros RegistroBebida[]
@@ -53,8 +56,8 @@ model RegistroBebida {
 
   // Relación con Usuario
   usuarioId String
-  usuario   Usuario @relation(fields: [usuarioId], references: [id])
-
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  
   // Relación con Bebida
   bebidaId String
   bebida   Bebida @relation(fields: [bebidaId], references: [id])
@@ -70,12 +73,17 @@ model ObjetivoHidratacion {
 
   // Relación con Usuario
   usuarioId String
-  usuario   Usuario @relation(fields: [usuarioId], references: [id])
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
 
-  @@unique([usuarioId, fecha]) // Solo un objetivo por usuario por día
+  @@unique([usuarioId, fecha])
 }
 
 enum TipoRegistro {
   MANUAL
   DIGITAL
+}
+
+enum UnidadMedida {
+  ML
+  OZ
 }
