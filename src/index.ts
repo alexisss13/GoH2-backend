@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import helmet from 'helmet';
 import cors from 'cors';
 import path from 'path';
+import fs from 'fs';
 
 // Importar nuestras nuevas rutas
 import authRoutes from './routes/auth.routes';
@@ -54,12 +55,45 @@ app.use(express.json());
 
 // 1. Servir el archivo openapi.yaml
 app.get('/api/docs/openapi.yaml', (req: Request, res: Response) => {
-  res.sendFile(path.resolve(__dirname, '../openapi.yaml'));
+  const yamlPath = path.join(__dirname, '../openapi.yaml');
+  
+  // Debug para ver si el archivo existe
+  if (!fs.existsSync(yamlPath)) {
+    console.error('❌ openapi.yaml no encontrado en:', yamlPath);
+    console.log('📁 Archivos en __dirname:', fs.readdirSync(__dirname));
+    return res.status(404).send('openapi.yaml no encontrado');
+  }
+  
+  res.sendFile(yamlPath);
 });
 
 // 2. Servir el HTML de ReDoc
 app.get('/api/docs', (req: Request, res: Response) => {
-  res.sendFile(path.join(__dirname, './docs/redoc.html'));
+  const html = `
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>GoH2 API Docs</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link
+      href="https://fonts.googleapis.com/css?family=Montserrat:300,400,700|Roboto:300,400,700"
+      rel="stylesheet"
+    />
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <redoc spec-url="/api/docs/openapi.yaml"></redoc>
+    <script src="https://cdn.redoc.ly/redoc/latest/bundles/redoc.standalone.js"></script>
+  </body>
+</html>
+  `;
+  res.send(html);
 });
 
 // --- Rutas de API ---
