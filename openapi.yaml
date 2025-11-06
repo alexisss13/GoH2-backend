@@ -215,6 +215,83 @@ components:
           type: integer
           example: 1264
 
+    UsuarioBuscado: # <-- AÑADIDO
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        nombre:
+          type: string
+        email:
+          type: string
+          format: email
+
+    FeedItem: # <-- AÑADIDO
+      type: object
+      description: "Un registro de bebida con info del usuario y bebida"
+      properties:
+        id:
+          type: string
+          format: uuid
+        cantidadConsumidaMl:
+          type: integer
+        aporteHidricoMl:
+          type: integer
+        fechaHora:
+          type: string
+          format: date-time
+        usuario:
+          type: object
+          properties:
+            nombre:
+              type: string
+        bebida:
+          type: object
+          properties:
+            nombre:
+              type: string
+
+    RankingItem: # <-- AÑADIDO
+      type: object
+      properties:
+        usuarioId:
+          type: string
+          format: uuid
+        nombre:
+          type: string
+        totalMl:
+          type: integer
+        esUsuarioActual:
+          type: boolean
+          description: "True si este item corresponde al usuario que hizo la petición."
+
+    PaginationMetadata:
+      type: object
+      properties:
+        totalItems:
+          type: integer
+          example: 150
+        totalPages:
+          type: integer
+          example: 8
+        currentPage:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 20
+          
+    PaginatedFeedResponse:
+      type: object
+      properties:
+        metadata:
+          $ref: '#/components/schemas/PaginationMetadata'
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/FeedItem'
+
 paths:
   /auth/registro:
     post:
@@ -568,3 +645,115 @@ paths:
           description: La contraseña actual es incorrecta.
         '400':
           description: Datos inválidos.
+
+  # --- Social (Nuevo) ---
+  /social/buscar:
+    get:
+      summary: Buscar usuarios
+      tags: [Social]
+      description: Busca usuarios por nombre o email (parcial).
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: q
+          schema:
+            type: string
+          description: "Término de búsqueda (nombre o email)."
+      responses:
+        '200':
+          description: Lista de usuarios encontrados.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UsuarioBuscado'
+
+  /social/seguir/{id}:
+    post:
+      summary: Seguir a un usuario
+      tags: [Social]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: string
+            format: uuid
+          required: true
+      responses:
+        '201':
+          description: Usuario seguido exitosamente.
+        '400':
+          description: No puedes seguirte a ti mismo.
+        '404':
+          description: Usuario a seguir no encontrado.
+        '409':
+          description: Ya sigues a este usuario.
+
+  /social/dejar-de-seguir/{id}:
+    delete:
+      summary: Dejar de seguir a un usuario
+      tags: [Social]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: string
+            format: uuid
+          required: true
+      responses:
+        '200':
+          description: Usuario dejado de seguir exitosamente.
+        '404':
+          description: No estabas siguiendo a este usuario.
+
+  /social/feed:
+    get:
+      summary: Obtener el feed social
+      tags: [Social]
+      description: Devuelve las últimas 50 actividades (registros de bebidas) de los usuarios que sigues.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: "Número de la página a obtener."
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+          description: "Número de items por página."
+      responses:
+        '200':
+          description: Una respuesta paginada con los registros de bebidas.
+          content:
+            application/json:
+              schema:
+                # --- ¡MODIFICADO! Apunta al nuevo schema ---
+                $ref: '#/components/schemas/PaginatedFeedResponse'
+
+  /social/ranking:
+    get:
+      summary: Obtener el ranking de hoy
+      tags: [Social]
+      description: Devuelve el total de ML consumidos hoy por el usuario y los usuarios que sigue.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Lista de usuarios y su total de ML, ordenados.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RankingItem'

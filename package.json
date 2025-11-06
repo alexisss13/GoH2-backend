@@ -17,6 +17,9 @@
     "prisma:migrate:deploy": "npx prisma migrate deploy",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+    "prisma": {
+    "seed": "ts-node prisma/seed.ts"
+  },
   "engines": {
     "node": "20.x"
   },

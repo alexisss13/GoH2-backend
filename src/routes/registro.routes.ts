@@ -26,7 +26,7 @@ router.post(
 // Obtener los registros del día
 router.get(
   '/',
-  validateRequest(getRegistrosSchema),
+  validateRequest(getRegistrosSchema, 'query'),
   getRegistrosController,
 );
 

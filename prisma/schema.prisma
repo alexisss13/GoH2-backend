@@ -30,6 +30,11 @@ model Usuario {
   // Relaciones
   registros RegistroBebida[]
   objetivos ObjetivoHidratacion[]
+
+  // Usuarios que yo estoy siguiendo (soy el 'seguidor')
+  siguiendo Follow[] @relation("Seguidor")
+  // Usuarios que me siguen a mí (soy el 'seguido')
+  seguidores Follow[] @relation("Seguido")
 }
 
 // Modelo para los tipos de bebidas disponibles
@@ -76,6 +81,25 @@ model ObjetivoHidratacion {
   usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
 
   @@unique([usuarioId, fecha])
+}
+
+// Modelo para el sistema de "Seguir" (Twitter/Instagram style)
+model Follow {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+
+  // Quién sigue
+  seguidorId String
+  seguidor   Usuario  @relation("Seguidor", fields: [seguidorId], references: [id], onDelete: Cascade)
+
+  // A quién sigue
+  seguidoId String
+  seguido   Usuario  @relation("Seguido", fields: [seguidoId], references: [id], onDelete: Cascade)
+
+  // Índice único para asegurar que no se pueda seguir dos veces
+  @@unique([seguidorId, seguidoId])
+  @@index([seguidorId])
+  @@index([seguidoId])
 }
 
 enum TipoRegistro {

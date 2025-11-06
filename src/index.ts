@@ -13,6 +13,7 @@ import registroRoutes from './routes/registro.routes';
 import objetivoRoutes from './routes/objetivo.routes';
 import resumenRoutes from './routes/resumen.routes';
 import configuracionRoutes from './routes/configuracion.routes';
+import socialRoutes from './routes/social.routes';
 
 
 // Cargar variables de entorno
@@ -69,6 +70,7 @@ app.use('/api/registros', registroRoutes); // Rutas de registros de consumo
 app.use('/api/objetivo', objetivoRoutes); // Rutas de objetivo de hidratación
 app.use('/api/resumen', resumenRoutes); // Rutas de resumen diario
 app.use('/api/configuracion', configuracionRoutes); //Ruta de configuraciones
+app.use('/api/social', socialRoutes); //Ruta de la pestaña social
 
 // Ruta de bienvenida (la movemos para que /api/docs funcione primero)
 app.get('/api', (req: Request, res: Response) => {

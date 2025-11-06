@@ -1,21 +1,26 @@
-// src/middleware/validateRequest.ts
 import { Request, Response, NextFunction } from 'express';
-import { ZodObject, ZodRawShape } from 'zod';
+import { ZodTypeAny, ZodError, ZodIssue } from 'zod';
 
-// Middleware genérico para validar requests
 export const validateRequest =
-  (schema: ZodObject<ZodRawShape>) =>
+  (schema: ZodTypeAny, source: 'body' | 'query' | 'params' = 'body') =>
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      await schema.parseAsync({
-        body: req.body,
-        query: req.query,
-        params: req.params,
-      });
-      return next();
-    } catch (error: any) {
-      if (error.errors) {
-        const validationErrors = error.errors.map((err: any) => ({
+      const dataToValidate = req[source] || {};
+      
+      // Validar los datos
+      const parsed = await schema.parseAsync(dataToValidate);
+      
+      // Solo reasignar body (query y params son read-only)
+      if (source === 'body') {
+        req.body = parsed;
+      }
+      // Para query y params, Zod ya validó que son correctos,
+      // pero no podemos reasignarlos porque son read-only en Express
+      
+      next();
+    } catch (error) {
+      if (error instanceof ZodError) {
+        const validationErrors = error.issues.map((err: ZodIssue) => ({
           path: err.path.join('.'),
           message: err.message,
         }));
@@ -24,34 +29,8 @@ export const validateRequest =
           details: validationErrors,
         });
       }
+
+      console.error('Error inesperado en validación:', error);
       return res.status(500).json({ error: 'Error interno en validación.' });
     }
   };
-
-/*
-import { Request, Response, NextFunction } from 'express';
-import { ZodTypeAny } from 'zod';
-
-export const validateRequest =
-  (schema: ZodTypeAny) =>
-  async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      await schema.parseAsync({
-        body: req.body,
-        query: req.query,
-        params: req.params,
-      });
-      next();
-    } catch (error: any) {
-      const validationErrors = error.errors?.map((err: any) => ({
-        path: err.path.join('.'),
-        message: err.message,
-      }));
-      res.status(400).json({
-        error: 'Datos de entrada inválidos.',
-        details: validationErrors,
-      });
-    }
-  };
-
-  */
