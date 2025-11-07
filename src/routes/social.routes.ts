@@ -9,7 +9,7 @@ import {
 } from '../controllers/social.controller';
 import { protectRoute } from '../middleware/auth.middleware';
 import { validateRequest } from '../middleware/validateRequest';
-import { findUsuariosSchema, getFeedSchema,} from '../validators/social.validator';
+import { findUsuariosSchema, getFeedSchema, getRankingSchema,} from '../validators/social.validator';
 
 const router = Router();
 router.use(protectRoute); // Todas las rutas sociales son protegidas
@@ -43,6 +43,7 @@ router.get(
 // Obtener el ranking de hoy
 router.get(
   '/ranking',
+  validateRequest(getRankingSchema),
   getRankingController,
 );
 

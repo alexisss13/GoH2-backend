@@ -193,33 +193,49 @@ export const getFeedController = async (req: Request, res: Response) => {
 };
 
 /**
- * Obtener el ranking de hoy (Tú + Seguidos)
- * GET /api/social/ranking
+ * Obtener el ranking (Diario, Semanal, Mensual)
+ * GET /api/social/ranking?periodo=dia|semana|mes
  */
 export const getRankingController = async (req: Request, res: Response) => {
   try {
     const usuarioId = req.user?.id!;
+    // El 'periodo' ya está validado y tiene un default gracias al middleware
+    const { periodo } = req.query as { periodo: 'dia' | 'semana' | 'mes' };
 
     // 1. Obtener IDs de los usuarios que sigo
     const seguidos = await prisma.follow.findMany({
       where: { seguidorId: usuarioId },
       select: { seguidoId: true },
     });
-    // Creamos una lista de IDs que incluye a mis amigos Y a mí
     const idsParaRanking = [...seguidos.map((f) => f.seguidoId), usuarioId];
 
-    // 2. Definir el rango de "hoy"
-    const hoy = new Date();
-    hoy.setHours(0, 0, 0, 0);
-    const manana = new Date(hoy);
-    manana.setDate(manana.getDate() + 1);
+    // Definir el rango de fechas basado en el periodo
+    const finPeriodo = new Date(); // El final del rango es siempre "ahora"
+    const inicioPeriodo = new Date(); // El inicio del rango cambiará
+
+    if (periodo === 'mes') {
+      // Setea al primer día del mes actual, a las 00:00:00
+      inicioPeriodo.setDate(1);
+      inicioPeriodo.setHours(0, 0, 0, 0);
+    } else if (periodo === 'semana') {
+      // Setea al inicio de los últimos 7 días (incluyendo hoy)
+      inicioPeriodo.setDate(inicioPeriodo.getDate() - 6); // 6 días atrás + hoy = 7 días
+      inicioPeriodo.setHours(0, 0, 0, 0);
+    } else {
+      // 'dia' (default)
+      // Setea al inicio del día de hoy
+      inicioPeriodo.setHours(0, 0, 0, 0);
+    }
 
     // 3. Agrupar registros por usuario y sumar su aporte hídrico
     const rankingData = await prisma.registroBebida.groupBy({
       by: ['usuarioId'],
       where: {
         usuarioId: { in: idsParaRanking },
-        fechaHora: { gte: hoy, lt: manana },
+        fechaHora: {
+          gte: inicioPeriodo, // Desde el inicio del periodo
+          lt: finPeriodo,     // Hasta ahora
+        },
       },
       _sum: {
         aporteHidricoMl: true,
@@ -233,19 +249,25 @@ export const getRankingController = async (req: Request, res: Response) => {
 
     // 4. Obtener los nombres de los usuarios en el ranking
     const idsUsuariosEnRanking = rankingData.map((r) => r.usuarioId);
-    const usuarios = await prisma.usuario.findMany({
-      where: {
-        id: { in: idsUsuariosEnRanking },
-      },
-      select: { id: true, nombre: true },
-    });
+    
+    // Optimización: No buscar en la DB si el ranking está vacío
+    let usuarios: { id: string; nombre: string }[] = [];
+;
+    if (idsUsuariosEnRanking.length > 0) {
+      usuarios = await prisma.usuario.findMany({
+        where: {
+          id: { in: idsUsuariosEnRanking },
+        },
+        select: { id: true, nombre: true },
+      });
+    }
 
     // 5. Combinar los datos del ranking con los nombres
     const rankingFinal = rankingData.map((r) => ({
       usuarioId: r.usuarioId,
       nombre: usuarios.find((u) => u.id === r.usuarioId)?.nombre || 'Usuario',
       totalMl: r._sum.aporteHidricoMl || 0,
-      esUsuarioActual: r.usuarioId === usuarioId, // Flag para el frontend
+      esUsuarioActual: r.usuarioId === usuarioId,
     }));
 
     res.status(200).json(rankingFinal);

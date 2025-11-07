@@ -25,3 +25,12 @@ export const getFeedSchema = z.object({
     .optional()
     .default(20),
 });
+
+export const getRankingSchema = z.object({
+  query: z.object({
+    periodo: z
+    .enum(['dia', 'semana', 'mes'])
+    .default('dia')
+    .refine(() => true, { message: "El periodo debe ser 'dia', 'semana' o 'mes'." })
+  }),
+});

@@ -714,9 +714,9 @@ paths:
 
   /social/feed:
     get:
-      summary: Obtener el feed social
+      summary: Obtener el feed social (paginado)
       tags: [Social]
-      description: Devuelve las últimas 50 actividades (registros de bebidas) de los usuarios que sigues.
+      description: Devuelve las últimas 50 actividades (registros de bebidas) de los usuarios que sigues, de forma paginada.
       security:
         - bearerAuth: []
       parameters:
@@ -738,16 +738,23 @@ paths:
           content:
             application/json:
               schema:
-                # --- ¡MODIFICADO! Apunta al nuevo schema ---
                 $ref: '#/components/schemas/PaginatedFeedResponse'
 
   /social/ranking:
     get:
-      summary: Obtener el ranking de hoy
+      summary: Obtener el ranking (Diario, Semanal, Mensual)
       tags: [Social]
-      description: Devuelve el total de ML consumidos hoy por el usuario y los usuarios que sigue.
+      description: Devuelve el total de ML consumidos hoy por el usuario y los usuarios que sigue, filtrado por un periodo de tiempo.
       security:
         - bearerAuth: []
+      parameters:
+        - in: query
+          name: periodo
+          schema:
+            type: string
+            enum: [dia, semana, mes]
+            default: dia
+          description: "El periodo de tiempo para el ranking (dia = hoy, semana = últimos 7 días, mes = este mes)."
       responses:
         '200':
           description: Lista de usuarios y su total de ML, ordenados.
