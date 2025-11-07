@@ -58,24 +58,6 @@ export const updateProfileController = async (req: Request, res: Response) => {
       dataToUpdate.fechaNacimiento = new Date(dataToUpdate.fechaNacimiento);
     }
 
-    const updatedUser = await prisma.usuario.update({
-      where: { id: userId },
-      data: dataToUpdate,
-      // Excluimos el hash de la contraseña de la respuesta actualizada
-      select: {
-        id: true,
-        email: true,
-        nombre: true,
-        fechaNacimiento: true,
-        genero: true,
-        alturaCm: true,
-        pesoKg: true,
-        nivelActividad: true,
-        createdAt: true,
-      },
-    });
-
-
 
     const fullUpdatedUser = await prisma.usuario.update({
       where: { id: userId },
