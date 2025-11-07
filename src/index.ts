@@ -5,6 +5,7 @@ import helmet from 'helmet';
 import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
+import { apiLimiter } from './middleware/rateLimiter';
 
 // Importar nuestras nuevas rutas
 import authRoutes from './routes/auth.routes';
@@ -46,8 +47,6 @@ app.use(
     },
   }),
 );
-
-
 app.use(cors(corsOptions));
 app.use(express.json());
 
@@ -97,6 +96,8 @@ app.get('/api/docs', (req: Request, res: Response) => {
 });
 
 // --- Rutas de API ---
+// Aplicamos el limitador general a TODAS las rutas /api
+app.use('/api', apiLimiter);
 app.use('/api/auth', authRoutes); // Rutas de autenticación
 app.use('/api/perfil', userRoutes); // Rutas de perfil de usuario
 app.use('/api/bebidas', bebidaRoutes); // Rutas de bebidas

@@ -38,6 +38,8 @@ model Usuario {
 
   likes       Like[]
   comentarios Comentario[]
+
+  passwordResetTokens PasswordResetToken[]
 }
 
 // Modelo para los tipos de bebidas disponibles
@@ -134,7 +136,6 @@ model Like {
   @@unique([usuarioId, registroId])
 }
 
-// --- ¡NUEVO MODELO DE COMENTARIOS! ---
 model Comentario {
   id        String   @id @default(uuid())
   createdAt DateTime @default(now())
@@ -149,4 +150,17 @@ model Comentario {
   registro   RegistroBebida @relation(fields: [registroId], references: [id], onDelete: Cascade)
 
   @@index([registroId, createdAt])
+}
+
+// Almacena tokens para restablecer contraseña
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  tokenHash String   @unique // Almacenamos el hash del token
+  expiresAt DateTime // Cuándo expira el token
+
+  // Relación con el usuario
+  usuarioId String
+  usuario   Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId])
 }

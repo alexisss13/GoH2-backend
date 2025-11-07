@@ -27,7 +27,6 @@ export const createRegistroSchema = z.object({
     .optional(),
 });
 
-// ✅ Elimina el wrapper "query"
 export const getRegistrosSchema = z.object({
   fecha: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, {
     message: "El formato de fecha debe ser YYYY-MM-DD."

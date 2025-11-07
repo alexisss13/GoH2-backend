@@ -195,7 +195,7 @@ components:
           type: string
           format: uuid
     
-    EstadoPerfil: # <-- AÑADIDO
+    EstadoPerfil: # <-- 
       type: object
       properties:
         isComplete:
@@ -205,7 +205,7 @@ components:
           type: string
           example: "Completa tu perfil para un cálculo de hidratación más preciso."
 
-    ResumenDiario: # <-- AÑADIDO
+    ResumenDiario: # <-- 
       type: object
       properties:
         consumidoMl:
@@ -215,7 +215,7 @@ components:
           type: integer
           example: 1264
 
-    UsuarioBuscado: # <-- AÑADIDO
+    UsuarioBuscado: # <-- 
       type: object
       properties:
         id:
@@ -227,7 +227,7 @@ components:
           type: string
           format: email
 
-    FeedItemActualizado: # <-- AÑADIDO (reemplaza al 'FeedItem' anterior)
+    FeedItemActualizado: # <--  (reemplaza al 'FeedItem' anterior)
       type: object
       description: "Un registro de bebida con info social"
       properties:
@@ -254,7 +254,7 @@ components:
           type: boolean
           example: false
 
-    RankingItem: # <-- AÑADIDO
+    RankingItem: # <-- 
       type: object
       properties:
         usuarioId:
@@ -294,7 +294,7 @@ components:
           items:
             $ref: '#/components/schemas/FeedItemActualizado'
     
-    CrearComentario: # <-- AÑADIDO
+    CrearComentario: # <-- 
       type: object
       properties:
         texto:
@@ -303,7 +303,7 @@ components:
           maxLength: 280
       required: [texto]
 
-    Comentario: # <-- AÑADIDO
+    Comentario: # <-- 
       type: object
       properties:
         id:
@@ -325,6 +325,18 @@ components:
           properties:
             nombre: { type: string }
             id: { type: string, format: uuid }
+
+    RestablecerPassword:
+      type: object
+      properties:
+        token:
+          type: string
+          description: "El token recibido en el email."
+        password:
+          type: string
+          format: password
+          description: "La nueva contraseña (min 6 caracteres)."
+      required: [token, password]
 
 paths:
   /auth/registro:
@@ -419,6 +431,51 @@ paths:
           description: Credenciales inválidas (email o contraseña incorrectos).
         '400':
           description: Datos de entrada inválidos.
+
+  /auth/olvide-password:
+    post:
+      summary: Solicitar restablecimiento de contraseña
+      tags: [Autenticación]
+      description: Envía un email al usuario (si existe) con un enlace para restablecer su contraseña. Siempre devuelve 200 OK por seguridad.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+              required: [email]
+      responses:
+        '200':
+          description: "Respuesta genérica para no revelar si el email existe."
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Si tu correo está registrado, recibirás un enlace de restablecimiento."
+
+  /auth/restablecer-password:
+    post:
+      summary: Restablecer la contraseña con un token
+      tags: [Autenticación]
+      description: Permite al usuario establecer una nueva contraseña usando el token que recibió por email.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RestablecerPassword'
+      responses:
+        '200':
+          description: Contraseña actualizada exitosamente.
+        '400':
+          description: Token inválido o expirado.
 
   /perfil:
     get:
@@ -573,7 +630,7 @@ paths:
       description: Devuelve los registros de consumo del usuario. Si no se provee 'fecha', devuelve los del día actual.
       security:
         - bearerAuth: [] # Requiere JWT
-# --- AÑADIDO (Parámetro de Query) ---
+# ---  (Parámetro de Query) ---
       parameters:
         - in: query
           name: fecha
@@ -640,7 +697,7 @@ paths:
         '404':
           description: Usuario no encontrado.
 # --- Resumen (Nuevo) ---
-  /resumen/hoy: # <-- AÑADIDO
+  /resumen/hoy: # <-- 
     get:
       summary: Obtener el resumen de la pantalla principal
       tags:
@@ -659,7 +716,7 @@ paths:
           description: No autorizado.
 
 # --- Configuración (Nuevo) ---
-  /configuracion/cambiar-password: # <-- AÑADIDO
+  /configuracion/cambiar-password: # <-- 
     post:
       summary: Cambiar la contraseña del usuario (Protegido)
       tags: [Configuración]

@@ -2,7 +2,6 @@
 import { z } from 'zod';
 
 export const createBebidaSchema = z.object({
-  body: z.object({
     nombre: z
       .string()
       .min(1, 'El nombre es requerido y no puede estar vacío.'),
@@ -13,5 +12,4 @@ export const createBebidaSchema = z.object({
       .positive('El factor debe ser un número positivo.')
       .optional()
       .default(1.0),
-  }),
 });

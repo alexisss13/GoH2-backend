@@ -14,7 +14,6 @@ const unidadMedidaEnum = z.nativeEnum(UnidadMedida).refine(
 
 
 export const updateProfileSchema = z.object({
-  body: z.object({
     // La pantalla 6 pide Fecha N.
     fechaNacimiento: z
       .string()
@@ -34,11 +33,8 @@ export const updateProfileSchema = z.object({
     nivelActividad: nivelesActividad.optional(),
     unidadMedida: unidadMedidaEnum.optional(),
 
-  }).strict(),// Evita que envíen campos que no esperamos
-});
+}).strict();
 
 export const deleteProfileSchema = z.object({
-  body: z.object({
     password: z.string().nonempty('La contraseña es requerida para borrar la cuenta.'),
-  }),
 });
