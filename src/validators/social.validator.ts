@@ -1,7 +1,6 @@
 // src/validators/social.validator.ts
 import { z } from 'zod';
 
-// ✅ Elimina el wrapper "query"
 export const findUsuariosSchema = z.object({
   q: z
     .string()
@@ -27,10 +26,14 @@ export const getFeedSchema = z.object({
 });
 
 export const getRankingSchema = z.object({
-  query: z.object({
-    periodo: z
+  periodo: z
     .enum(['dia', 'semana', 'mes'])
-    .default('dia')
-    .refine(() => true, { message: "El periodo debe ser 'dia', 'semana' o 'mes'." })
-  }),
+    .default('dia'),
+});
+
+export const comentarioSchema = z.object({
+  texto: z
+    .string()
+    .min(1, 'El texto es requerido.')
+    .max(280, 'El comentario no puede exceder los 280 caracteres.'),
 });

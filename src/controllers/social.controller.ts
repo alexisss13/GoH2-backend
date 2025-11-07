@@ -122,7 +122,6 @@ export const getFeedController = async (req: Request, res: Response) => {
   try {
     const usuarioId = req.user?.id!;
     
-    // ✅ Convertir explícitamente a número con valores por defecto
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 20;
     
@@ -163,14 +162,37 @@ export const getFeedController = async (req: Request, res: Response) => {
         include: {
           usuario: { select: { nombre: true } },
           bebida: { select: { nombre: true } },
+          _count: {
+            select: { likes: true, comentarios: true },
+          },
+          likes: {
+            where: {
+              usuarioId: usuarioId, // Solo búsca mis likes
+            },
+            select: {
+              id: true, // Para saber si ya le di like
+            },
+          },
         },
         orderBy: {
           fechaHora: 'desc',
         },
-        take: limit, // ✅ Ahora es número
-        skip: skip,  // ✅ Ahora es número
+        take: limit,
+        skip: skip,
       }),
     ]);
+
+    // Procesamos la data para que sea más fácil para el frontend
+    const formatedData = feedData.map(registro => {
+      const { _count, likes, ...restoDelRegistro } = registro;
+      return {
+        ...restoDelRegistro,
+        conteoDeLikes: _count.likes,
+        conteoDeComentarios: _count.comentarios,
+        // 'leDiLike' será true si encontramos un like nuestro
+        leDiLike: likes.length > 0, 
+      };
+    });
 
     // 5. Calcular metadata de paginación
     const totalPages = Math.ceil(totalItems / limit);
@@ -183,7 +205,7 @@ export const getFeedController = async (req: Request, res: Response) => {
         currentPage: page,
         limit,
       },
-      data: feedData,
+      data: formatedData,
     });
 
   } catch (error) {
@@ -273,6 +295,157 @@ export const getRankingController = async (req: Request, res: Response) => {
     res.status(200).json(rankingFinal);
   } catch (error) {
     console.error('Error al obtener ranking:', error);
+    res.status(500).json({ error: 'Error interno del servidor.' });
+  }
+};
+
+/**
+ * Dar like a un registro
+ * POST /api/social/registros/:id/like
+ */
+export const likeRegistroController = async (req: Request, res: Response) => {
+  try {
+    const usuarioId = req.user?.id!;
+    const { id: registroId } = req.params;
+
+    // Usamos 'upsert' para crear el like. Si ya existe (por el @@unique),
+    // no hace nada, previniendo duplicados de forma segura.
+    await prisma.like.upsert({
+      where: {
+        usuarioId_registroId: {
+          usuarioId,
+          registroId,
+        },
+      },
+      create: {
+        usuarioId,
+        registroId,
+      },
+      update: {}, // No hacemos nada si ya existe
+    });
+    
+    res.status(201).json({ message: 'Like añadido.' });
+  } catch (error) {
+    // Manejo de error si el registro no existe (violación de Foreign Key)
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2003') {
+      return res.status(404).json({ error: 'El registro de bebida no existe.' });
+    }
+    console.error('Error al dar like:', error);
+    res.status(500).json({ error: 'Error interno del servidor.' });
+  }
+};
+
+/**
+ * Quitar like a un registro
+ * DELETE /api/social/registros/:id/like
+ */
+export const unlikeRegistroController = async (req: Request, res: Response) => {
+  try {
+    const usuarioId = req.user?.id!;
+    const { id: registroId } = req.params;
+
+    // Usamos deleteMany por si el like no existía, para no fallar
+    await prisma.like.deleteMany({
+      where: {
+        usuarioId,
+        registroId,
+      },
+    });
+
+    res.status(200).json({ message: 'Like eliminado.' });
+  } catch (error) {
+    console.error('Error al quitar like:', error);
+    res.status(500).json({ error: 'Error interno del servidor.' });
+  }
+};
+
+/**
+ * Comentar en un registro
+ * POST /api/social/registros/:id/comentar
+ */
+export const comentarRegistroController = async (req: Request, res: Response) => {
+  try {
+    const usuarioId = req.user?.id!;
+    const { id: registroId } = req.params;
+    const { texto } = req.body;
+
+    const nuevoComentario = await prisma.comentario.create({
+      data: {
+        texto,
+        usuarioId,
+        registroId,
+      },
+      include: {
+        usuario: { select: { nombre: true, id: true }}
+      }
+    });
+
+    res.status(201).json(nuevoComentario);
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2003') {
+      return res.status(404).json({ error: 'El registro de bebida no existe.' });
+    }
+    console.error('Error al comentar:', error);
+    res.status(500).json({ error: 'Error interno del servidor.' });
+  }
+};
+
+/**
+ * Obtener comentarios de un registro
+ * GET /api/social/registros/:id/comentarios
+ */
+export const getComentariosController = async (req: Request, res: Response) => {
+  try {
+    const { id: registroId } = req.params;
+
+    const comentarios = await prisma.comentario.findMany({
+      where: { registroId },
+      include: {
+        usuario: { select: { nombre: true, id: true } }, // Devolvemos el nombre y ID
+      },
+      orderBy: {
+        createdAt: 'asc', // El más antiguo primero
+      },
+    });
+
+    res.status(200).json(comentarios);
+  } catch (error) {
+    console.error('Error al obtener comentarios:', error);
+    res.status(500).json({ error: 'Error interno del servidor.' });
+  }
+};
+
+/**
+ * Borrar un comentario
+ * DELETE /api/social/comentarios/:id
+ */
+export const deleteComentarioController = async (req: Request, res: Response) => {
+  try {
+    const usuarioId = req.user?.id!;
+    const { id: comentarioId } = req.params;
+
+    // 1. Buscar el comentario
+    const comentario = await prisma.comentario.findUnique({
+      where: { id: comentarioId },
+    });
+
+    if (!comentario) {
+      return res.status(404).json({ error: 'Comentario no encontrado.' });
+    }
+
+    // 2. Verificar que el usuario es el dueño del comentario
+    if (comentario.usuarioId !== usuarioId) {
+      return res.status(403).json({ error: 'No autorizado para borrar este comentario.' });
+    }
+
+    // 3. Borrar el comentario
+    await prisma.comentario.delete({
+      where: { id: comentarioId },
+    });
+
+    res.status(200).json({ message: 'Comentario eliminado.' });
+  } catch (error) {
+    console.error('Error al borrar comentario:', error);
     res.status(500).json({ error: 'Error interno del servidor.' });
   }
 };

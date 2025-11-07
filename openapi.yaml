@@ -227,30 +227,32 @@ components:
           type: string
           format: email
 
-    FeedItem: # <-- AÑADIDO
+    FeedItemActualizado: # <-- AÑADIDO (reemplaza al 'FeedItem' anterior)
       type: object
-      description: "Un registro de bebida con info del usuario y bebida"
+      description: "Un registro de bebida con info social"
       properties:
-        id:
+        id: # <-- El ID del registro
           type: string
           format: uuid
-        cantidadConsumidaMl:
-          type: integer
-        aporteHidricoMl:
-          type: integer
-        fechaHora:
-          type: string
-          format: date-time
+        cantidadConsumidaMl: { type: integer }
+        aporteHidricoMl: { type: integer }
+        fechaHora: { type: string, format: date-time }
         usuario:
           type: object
-          properties:
-            nombre:
-              type: string
+          properties: { nombre: { type: string } }
         bebida:
           type: object
-          properties:
-            nombre:
-              type: string
+          properties: { nombre: { type: string } }
+        # Nuevos campos sociales:
+        conteoDeLikes:
+          type: integer
+          example: 5
+        conteoDeComentarios:
+          type: integer
+          example: 2
+        leDiLike:
+          type: boolean
+          example: false
 
     RankingItem: # <-- AÑADIDO
       type: object
@@ -290,7 +292,39 @@ components:
         data:
           type: array
           items:
-            $ref: '#/components/schemas/FeedItem'
+            $ref: '#/components/schemas/FeedItemActualizado'
+    
+    CrearComentario: # <-- AÑADIDO
+      type: object
+      properties:
+        texto:
+          type: string
+          example: "¡Buena esa!"
+          maxLength: 280
+      required: [texto]
+
+    Comentario: # <-- AÑADIDO
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+        texto:
+          type: string
+        usuarioId:
+          type: string
+          format: uuid
+        registroId:
+          type: string
+          format: uuid
+        usuario:
+          type: object
+          properties:
+            nombre: { type: string }
+            id: { type: string, format: uuid }
 
 paths:
   /auth/registro:
@@ -716,7 +750,7 @@ paths:
     get:
       summary: Obtener el feed social (paginado)
       tags: [Social]
-      description: Devuelve las últimas 50 actividades (registros de bebidas) de los usuarios que sigues, de forma paginada.
+      description: Devuelve las actividades (registros de bebidas) de los usuarios que sigues, de forma paginada.
       security:
         - bearerAuth: []
       parameters:
@@ -734,7 +768,7 @@ paths:
           description: "Número de items por página."
       responses:
         '200':
-          description: Una respuesta paginada con los registros de bebidas.
+          description: Una respuesta paginada con los registros de bebidas, incluyendo conteos de likes/comentarios.
           content:
             application/json:
               schema:
@@ -764,3 +798,104 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/RankingItem'
+  /social/registros/{id}/like:
+    post:
+      summary: Dar 'Like' a un registro de bebida
+      tags: [Social]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+          description: "El ID del RegistroBebida"
+      responses:
+        '201':
+          description: Like añadido.
+        '404':
+          description: Registro no encontrado.
+    delete:
+      summary: Quitar 'Like' a un registro de bebida
+      tags: [Social]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+          description: "El ID del RegistroBebida"
+      responses:
+        '200':
+          description: Like eliminado.
+
+  /social/registros/{id}/comentar:
+    post:
+      summary: Añadir un comentario a un registro
+      tags: [Social]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+          description: "El ID del RegistroBebida"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CrearComentario'
+      responses:
+        '201':
+          description: Comentario creado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comentario'
+        '404':
+          description: Registro no encontrado.
+
+  /social/registros/{id}/comentarios:
+    get:
+      summary: Listar comentarios de un registro
+      tags: [Social]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+          description: "El ID del RegistroBebida"
+      responses:
+        '200':
+          description: Lista de comentarios.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Comentario'
+
+  /social/comentarios/{id}:
+    delete:
+      summary: Borrar un comentario propio
+      tags: [Social]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+          description: "El ID del Comentario a borrar"
+      responses:
+        '200':
+          description: Comentario eliminado.
+        '403':
+          description: No autorizado (no es tu comentario).
+        '404':
+          description: Comentario no encontrado.
