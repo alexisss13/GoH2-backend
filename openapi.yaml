@@ -338,6 +338,55 @@ components:
           description: "La nueva contraseña (min 6 caracteres)."
       required: [token, password]
 
+
+    # --- E-COMMERCE SCHEMAS ---
+    ShippingData:
+      type: object
+      properties:
+        firstName: { type: string, example: "Juan" }
+        lastName: { type: string, example: "Pérez" }
+        email: { type: string, format: email, example: "juan@example.com" }
+        phone: { type: string, example: "999999999" }
+        address: { type: string, example: "Av. Principal 123" }
+        city: { type: string, example: "Lima" }
+        zip: { type: string, example: "15001" }
+        notes: { type: string, example: "Dejar en recepción" }
+      required: [firstName, email, phone, address, city]
+
+    OrderItem:
+      type: object
+      properties:
+        id: { type: integer, example: 1 }
+        name: { type: string, example: "Botella H2GO" }
+        price: { type: number, example: 120.00 }
+        quantity: { type: integer, example: 2 }
+        image: { type: string, example: "https://cloudinary..." }
+        variant: 
+          type: object
+          properties:
+            name: { type: string, example: "Negro Mate" }
+
+    CrearPedido:
+      type: object
+      properties:
+        shippingData:
+          $ref: '#/components/schemas/ShippingData'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItem'
+        subtotal: { type: number, example: 240.00 }
+        total: { type: number, example: 240.00 }
+      required: [shippingData, items, total]
+
+    RespuestaPedido:
+      type: object
+      properties:
+        message: { type: string, example: "Pedido creado exitosamente" }
+        pedidoId: { type: string, format: uuid }
+        total: { type: number }
+        moneda: { type: string, example: "PEN" }
+
 paths:
   /auth/registro:
     post:

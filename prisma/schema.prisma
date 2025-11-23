@@ -30,7 +30,7 @@ model Usuario {
   // Relaciones
   registros RegistroBebida[]
   objetivos ObjetivoHidratacion[]
-
+  pedidos Pedido[]
   // Usuarios que yo estoy siguiendo (soy el 'seguidor')
   siguiendo  Follow[] @relation("Seguidor")
   // Usuarios que me siguen a mí (soy el 'seguido')
@@ -163,4 +163,65 @@ model PasswordResetToken {
   usuario   Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
 
   @@index([usuarioId])
+}
+
+//ecommerce
+
+
+model Pedido {
+  id              String         @id @default(uuid())
+  usuarioId       String
+  usuario         Usuario        @relation(fields: [usuarioId], references: [id])
+  
+  subtotal        Float
+  costoEnvio      Float
+  total           Float
+  moneda          String         @default("PEN")
+  
+  estado          String         @default("PENDIENTE") // PENDIENTE, PAGADO, ENVIADO
+  
+  // Datos de Envío
+  nombreReceptor  String
+  telefonoContact String
+  direccion       String
+  ciudad          String
+  codigoPostal    String?
+  notas           String?
+
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  
+  detalles        DetallePedido[]
+  pagos           Pago[]
+
+  @@index([usuarioId])
+}
+
+model DetallePedido {
+  id               String  @id @default(uuid())
+  pedidoId         String
+  pedido           Pedido  @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  
+  productoIdStrapi String  
+  nombre           String
+  precioUnitario   Float
+  cantidad         Int
+  imagenUrl        String?
+  varianteColor    String? 
+  
+  subtotalLinea    Float
+}
+
+model Pago {
+  id              String   @id @default(uuid())
+  pedidoId        String
+  pedido          Pedido   @relation(fields: [pedidoId], references: [id])
+  
+  monto           Float
+  metodoPago      String   // "IZIPAY", "YAPE"
+  referenciaExt   String?  
+  estado          String   @default("PENDIENTE") 
+  
+  fechaPago       DateTime?
+  createdAt       DateTime @default(now())
 }
