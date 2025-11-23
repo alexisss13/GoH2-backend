@@ -26,7 +26,7 @@ const PORT = process.env.PORT || 3000;
 
 const corsOptions = {
   // Permite el frontend definido en .env o todos (*) si es desarrollo
-  origin: process.env.FRONTEND_URL ? process.env.FRONTEND_URL : '*',
+  origin: '*',
 };
 
 // --- 1. Middlewares Globales ---
