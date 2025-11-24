@@ -3,33 +3,30 @@ import { prisma } from '../lib/prisma';
 import { MercadoPagoConfig, Preference } from 'mercadopago';
 
 // Configuración de Mercado Pago
-// IMPORTANTE: Asegúrate de que MP_ACCESS_TOKEN esté en tu archivo .env
 const client = new MercadoPagoConfig({ 
   accessToken: process.env.MP_ACCESS_TOKEN || '' 
 });
 
 export const createOrderController = async (req: Request, res: Response) => {
   try {
-    // Validación segura del usuario
+    // Validación de usuario
     const user = (req as any).user;
     if (!user || !user.id) {
-      return res.status(401).json({ error: 'Usuario no autenticado o token inválido.' });
+      return res.status(401).json({ error: 'Usuario no autenticado.' });
     }
     const usuarioId = user.id;
 
     const { shippingData, items, total, subtotal, landingUrl } = req.body;
 
-    // Validación de items
     if (!items || !Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({ error: 'El pedido no tiene productos válidos.' });
+      return res.status(400).json({ error: 'El pedido no tiene productos.' });
     }
 
-    // 1. Guardar el pedido en la Base de Datos (Estado PENDIENTE)
+    // 1. Guardar pedido en base de datos
     const nuevoPedido = await prisma.pedido.create({
       data: {
         usuarioId,
-        // Mapeamos 'firstName' del formulario al campo 'nombreReceptor' de la BD
-        nombreReceptor: shippingData.firstName, 
+        nombreReceptor: shippingData.firstName,
         telefonoContact: shippingData.phone,
         direccion: shippingData.address,
         ciudad: shippingData.city,
@@ -44,7 +41,7 @@ export const createOrderController = async (req: Request, res: Response) => {
 
         detalles: {
           create: items.map((item: any) => ({
-            productoIdStrapi: String(item.id), // Aseguramos que sea string
+            productoIdStrapi: String(item.id),
             nombre: item.name,
             precioUnitario: Number(item.price),
             cantidad: Number(item.quantity),
@@ -56,9 +53,10 @@ export const createOrderController = async (req: Request, res: Response) => {
       }
     });
 
-    // 2. Definir URLs de retorno (Back URLs)
-    // Usamos 'landingUrl' que nos envía el frontend para saber a dónde volver
-    // Si no llega, usamos una por defecto (localhost o env)
+    // 2. Definir URL base de retorno (CORREGIDO)
+    // Prioridad 1: La URL que nos envía el Frontend (landingUrl)
+    // Prioridad 2: La variable de entorno específica para la Landing
+    // Fallback: localhost para desarrollo
     const baseUrl = landingUrl || process.env.FRONTEND_LANDING_URL || 'http://localhost:3000';
     
     const backUrls = {
@@ -67,7 +65,7 @@ export const createOrderController = async (req: Request, res: Response) => {
       pending: `${baseUrl}/checkout/pending`,
     };
 
-    // 3. Crear la Preferencia en Mercado Pago
+    // 3. Crear Preferencia Mercado Pago
     const preference = new Preference(client);
 
     const mpResult = await preference.create({
@@ -77,7 +75,7 @@ export const createOrderController = async (req: Request, res: Response) => {
           title: item.name,
           quantity: Number(item.quantity),
           unit_price: Number(item.price),
-          currency_id: 'PEN', // Soles
+          currency_id: 'PEN',
           picture_url: item.image 
         })),
         payer: {
@@ -91,19 +89,16 @@ export const createOrderController = async (req: Request, res: Response) => {
             zip_code: shippingData.zip
           }
         },
-        back_urls: backUrls,
-        auto_return: "approved", // Redirige automáticamente si el pago es exitoso
+        back_urls: backUrls, // <--- Aquí usamos las URLs corregidas
+        auto_return: "approved",
         external_reference: nuevoPedido.id,
-        statement_descriptor: "H2GO PERU",
+        statement_descriptor: "H2GO TIENDA",
       }
     });
 
-    // 4. Responder con el link de pago
     res.status(201).json({
       message: 'Preferencia creada',
       pedidoId: nuevoPedido.id,
-      // En desarrollo (localhost) usa sandbox_init_point
-      // En producción usa init_point
       init_point: mpResult.init_point, 
       sandbox_init_point: mpResult.sandbox_init_point 
     });
