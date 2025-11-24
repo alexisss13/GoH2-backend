@@ -17,7 +17,7 @@ import resumenRoutes from './routes/resumen.routes';
 import configuracionRoutes from './routes/configuracion.routes';
 import socialRoutes from './routes/social.routes';
 import orderRoutes from './routes/order.routes'; // Importado correctamente
-
+import webhookRoutes from './routes/webhook.routes'; // <--- IMPORTAR
 // Cargar variables de entorno
 dotenv.config();
 
@@ -97,6 +97,9 @@ app.use('/api/social', socialRoutes);
 
 // Ruta de E-commerce
 app.use('/api/orders', orderRoutes); // La nueva ruta de pedidos
+app.use('/api/webhooks', webhookRoutes); // <--- AGREGAR
+
+
 
 // Ruta base de bienvenida
 app.get('/api', (req: Request, res: Response) => {
