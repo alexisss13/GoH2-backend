@@ -20,24 +20,10 @@ export const createOrderController = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'El pedido no tiene productos.' });
     }
 
-    // --- 1. DEFINICIÓN ROBUSTA DE LA URL BASE ---
-    // Si landingUrl viene del frontend, úsala.
-    // Si no, usa la variable de entorno.
-    // Si todo falla, usa una URL dummy para que no explote (solo en emergencia).
-    let baseUrl = landingUrl;
-    
-    if (!baseUrl) {
-        baseUrl = process.env.FRONTEND_LANDING_URL;
-    }
-    
-    // Fallback de emergencia si todo es undefined (evita el error de MP)
-    if (!baseUrl) {
-        console.warn("⚠️ ADVERTENCIA: No se detectó URL de retorno. Usando fallback.");
-        baseUrl = "https://goh2-landing.vercel.app"; // Pon aquí tu URL real de producción por si acaso
-    }
-    
-    // Limpiamos slash final si existe para evitar errores de doble //
-    baseUrl = baseUrl.replace(/\/$/, "");
+    // Prioridad: Frontend > Env > Fallback
+    // OJO: Si estás probando en local, esto será http://localhost:3000
+    let baseUrl = landingUrl || process.env.FRONTEND_LANDING_URL || 'http://localhost:3000';
+    baseUrl = baseUrl.replace(/\/$/, ""); // Limpiar slash final
 
     console.log("✅ Generando pago con Base URL:", baseUrl);
 
@@ -73,7 +59,8 @@ export const createOrderController = async (req: Request, res: Response) => {
 
     const preference = new Preference(client);
 
-    const mpResult = await preference.create({
+    // --- CONFIGURACIÓN SEGURA PARA PREFERENCIA ---
+    const preferenceData = {
       body: {
         items: items.map((item: any) => ({
           id: String(item.id),
@@ -87,24 +74,26 @@ export const createOrderController = async (req: Request, res: Response) => {
           name: shippingData.firstName,
           email: shippingData.email,
           phone: {
-            number: shippingData.phone
+             number: shippingData.phone
           },
           address: {
             street_name: shippingData.address,
             zip_code: shippingData.zip
           }
         },
-        // URLs construidas seguramente
         back_urls: {
           success: `${baseUrl}/checkout/success?orderId=${nuevoPedido.id}`,
           failure: `${baseUrl}/checkout/failure`,
           pending: `${baseUrl}/checkout/pending`,
         },
-        auto_return: "approved",
+        // 🚨 CAMBIO CRÍTICO: Comentamos esto para que no falle en localhost
+        // auto_return: "approved", 
         external_reference: nuevoPedido.id,
         statement_descriptor: "H2GO TIENDA",
       }
-    });
+    };
+
+    const mpResult = await preference.create(preferenceData);
 
     res.status(201).json({
       message: 'Preferencia creada',
@@ -115,7 +104,7 @@ export const createOrderController = async (req: Request, res: Response) => {
 
   } catch (error: any) {
     console.error('❌ Error CRÍTICO al crear pedido:', error);
-    // Muestra el error real de Mercado Pago si existe
+    // Esto nos ayudará a ver el error real de Mercado Pago en los logs de Render
     if (error.cause) console.error('Causa MP:', JSON.stringify(error.cause, null, 2));
     
     res.status(500).json({ error: 'Error interno del servidor al procesar el pago.' });
