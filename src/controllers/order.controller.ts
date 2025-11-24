@@ -2,14 +2,12 @@ import { Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { MercadoPagoConfig, Preference } from 'mercadopago';
 
-// Configuración de Mercado Pago
 const client = new MercadoPagoConfig({ 
   accessToken: process.env.MP_ACCESS_TOKEN || '' 
 });
 
 export const createOrderController = async (req: Request, res: Response) => {
   try {
-    // Validación de usuario
     const user = (req as any).user;
     if (!user || !user.id) {
       return res.status(401).json({ error: 'Usuario no autenticado.' });
@@ -22,7 +20,27 @@ export const createOrderController = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'El pedido no tiene productos.' });
     }
 
-    // 1. Guardar pedido en base de datos
+    // --- 1. DEFINICIÓN ROBUSTA DE LA URL BASE ---
+    // Si landingUrl viene del frontend, úsala.
+    // Si no, usa la variable de entorno.
+    // Si todo falla, usa una URL dummy para que no explote (solo en emergencia).
+    let baseUrl = landingUrl;
+    
+    if (!baseUrl) {
+        baseUrl = process.env.FRONTEND_LANDING_URL;
+    }
+    
+    // Fallback de emergencia si todo es undefined (evita el error de MP)
+    if (!baseUrl) {
+        console.warn("⚠️ ADVERTENCIA: No se detectó URL de retorno. Usando fallback.");
+        baseUrl = "https://goh2-landing.vercel.app"; // Pon aquí tu URL real de producción por si acaso
+    }
+    
+    // Limpiamos slash final si existe para evitar errores de doble //
+    baseUrl = baseUrl.replace(/\/$/, "");
+
+    console.log("✅ Generando pago con Base URL:", baseUrl);
+
     const nuevoPedido = await prisma.pedido.create({
       data: {
         usuarioId,
@@ -53,19 +71,6 @@ export const createOrderController = async (req: Request, res: Response) => {
       }
     });
 
-    // 2. Definir URL base de retorno (CORREGIDO)
-    // Prioridad 1: La URL que nos envía el Frontend (landingUrl)
-    // Prioridad 2: La variable de entorno específica para la Landing
-    // Fallback: localhost para desarrollo
-    const baseUrl = landingUrl || process.env.FRONTEND_LANDING_URL || 'http://localhost:3000';
-    
-    const backUrls = {
-      success: `${baseUrl}/checkout/success?orderId=${nuevoPedido.id}`,
-      failure: `${baseUrl}/checkout/failure`,
-      pending: `${baseUrl}/checkout/pending`,
-    };
-
-    // 3. Crear Preferencia Mercado Pago
     const preference = new Preference(client);
 
     const mpResult = await preference.create({
@@ -89,7 +94,12 @@ export const createOrderController = async (req: Request, res: Response) => {
             zip_code: shippingData.zip
           }
         },
-        back_urls: backUrls, // <--- Aquí usamos las URLs corregidas
+        // URLs construidas seguramente
+        back_urls: {
+          success: `${baseUrl}/checkout/success?orderId=${nuevoPedido.id}`,
+          failure: `${baseUrl}/checkout/failure`,
+          pending: `${baseUrl}/checkout/pending`,
+        },
         auto_return: "approved",
         external_reference: nuevoPedido.id,
         statement_descriptor: "H2GO TIENDA",
@@ -103,8 +113,11 @@ export const createOrderController = async (req: Request, res: Response) => {
       sandbox_init_point: mpResult.sandbox_init_point 
     });
 
-  } catch (error) {
-    console.error('Error al crear pedido:', error);
-    res.status(500).json({ error: 'Error interno al procesar el pedido.' });
+  } catch (error: any) {
+    console.error('❌ Error CRÍTICO al crear pedido:', error);
+    // Muestra el error real de Mercado Pago si existe
+    if (error.cause) console.error('Causa MP:', JSON.stringify(error.cause, null, 2));
+    
+    res.status(500).json({ error: 'Error interno del servidor al procesar el pago.' });
   }
 };
