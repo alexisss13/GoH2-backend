@@ -1,33 +1,35 @@
 import { Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
-// 1. Importar Mercado Pago
 import { MercadoPagoConfig, Preference } from 'mercadopago';
 
-// 2. Configurar cliente
+// Configuración de Mercado Pago
+// IMPORTANTE: Asegúrate de que MP_ACCESS_TOKEN esté en tu archivo .env
 const client = new MercadoPagoConfig({ 
   accessToken: process.env.MP_ACCESS_TOKEN || '' 
 });
 
 export const createOrderController = async (req: Request, res: Response) => {
   try {
-    const usuarioId = (req as any).user?.id; 
+    // Validación segura del usuario
+    const user = (req as any).user;
+    if (!user || !user.id) {
+      return res.status(401).json({ error: 'Usuario no autenticado o token inválido.' });
+    }
+    const usuarioId = user.id;
 
-    if (!usuarioId) {
-      return res.status(401).json({ error: 'Usuario no autenticado.' });
+    const { shippingData, items, total, subtotal, landingUrl } = req.body;
+
+    // Validación de items
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ error: 'El pedido no tiene productos válidos.' });
     }
 
-    const { shippingData, items, total, subtotal } = req.body;
-
-    if (!items || items.length === 0) {
-      return res.status(400).json({ error: 'El pedido no tiene productos.' });
-    }
-
-    // 3. Guardar el pedido en TU base de datos (Prisma)
-    // Usamos el campo firstName como nombreReceptor completo
+    // 1. Guardar el pedido en la Base de Datos (Estado PENDIENTE)
     const nuevoPedido = await prisma.pedido.create({
       data: {
         usuarioId,
-        nombreReceptor: shippingData.firstName, // <--- CAMBIO: Solo usamos firstName
+        // Mapeamos 'firstName' del formulario al campo 'nombreReceptor' de la BD
+        nombreReceptor: shippingData.firstName, 
         telefonoContact: shippingData.phone,
         direccion: shippingData.address,
         ciudad: shippingData.city,
@@ -35,34 +37,45 @@ export const createOrderController = async (req: Request, res: Response) => {
         notas: shippingData.notes,
         
         subtotal: parseFloat(subtotal),
-        costoEnvio: total - subtotal, 
+        costoEnvio: parseFloat(total) - parseFloat(subtotal),
         total: parseFloat(total),
         estado: 'PENDIENTE',
-        metodoPago: 'MERCADO_PAGO', // <--- Puedes agregar este campo a tu modelo si quieres
+        metodoPago: 'MERCADO_PAGO',
 
         detalles: {
           create: items.map((item: any) => ({
-            productoIdStrapi: item.id.toString(),
+            productoIdStrapi: String(item.id), // Aseguramos que sea string
             nombre: item.name,
-            precioUnitario: item.price,
-            cantidad: item.quantity,
-            imagenUrl: item.image,
+            precioUnitario: Number(item.price),
+            cantidad: Number(item.quantity),
+            imagenUrl: item.image || "",
             varianteColor: item.variant?.name || null,
-            subtotalLinea: item.price * item.quantity
+            subtotalLinea: Number(item.price) * Number(item.quantity)
           }))
         }
       }
     });
 
-    // 4. Crear la Preferencia de Mercado Pago
+    // 2. Definir URLs de retorno (Back URLs)
+    // Usamos 'landingUrl' que nos envía el frontend para saber a dónde volver
+    // Si no llega, usamos una por defecto (localhost o env)
+    const baseUrl = landingUrl || process.env.FRONTEND_LANDING_URL || 'http://localhost:3000';
+    
+    const backUrls = {
+      success: `${baseUrl}/checkout/success?orderId=${nuevoPedido.id}`,
+      failure: `${baseUrl}/checkout/failure`,
+      pending: `${baseUrl}/checkout/pending`,
+    };
+
+    // 3. Crear la Preferencia en Mercado Pago
     const preference = new Preference(client);
 
-    const result = await preference.create({
+    const mpResult = await preference.create({
       body: {
         items: items.map((item: any) => ({
-          id: item.id.toString(),
+          id: String(item.id),
           title: item.name,
-          quantity: item.quantity,
+          quantity: Number(item.quantity),
           unit_price: Number(item.price),
           currency_id: 'PEN', // Soles
           picture_url: item.image 
@@ -78,24 +91,21 @@ export const createOrderController = async (req: Request, res: Response) => {
             zip_code: shippingData.zip
           }
         },
-        // URLs a las que MP redirige al usuario después de pagar
-        back_urls: {
-          success: `${process.env.FRONTEND_URL}/checkout/success?orderId=${nuevoPedido.id}`,
-          failure: `${process.env.FRONTEND_URL}/checkout/failure`,
-          pending: `${process.env.FRONTEND_URL}/checkout/pending`,
-        },
-        auto_return: "approved",
-        external_reference: nuevoPedido.id, // Vinculamos el pago con tu ID de pedido
-        statement_descriptor: "GOH2 TIENDA",
+        back_urls: backUrls,
+        auto_return: "approved", // Redirige automáticamente si el pago es exitoso
+        external_reference: nuevoPedido.id,
+        statement_descriptor: "H2GO PERU",
       }
     });
 
-    // 5. Responder con la URL de pago (init_point)
+    // 4. Responder con el link de pago
     res.status(201).json({
-      message: 'Pedido creado. Redirigiendo a Mercado Pago...',
+      message: 'Preferencia creada',
       pedidoId: nuevoPedido.id,
-      init_point: result.init_point,         // URL para producción
-      sandbox_init_point: result.sandbox_init_point // URL para pruebas (sandbox)
+      // En desarrollo (localhost) usa sandbox_init_point
+      // En producción usa init_point
+      init_point: mpResult.init_point, 
+      sandbox_init_point: mpResult.sandbox_init_point 
     });
 
   } catch (error) {
