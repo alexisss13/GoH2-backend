@@ -87,7 +87,7 @@ export const createOrderController = async (req: Request, res: Response) => {
           pending: `${baseUrl}/checkout/pending`,
         },
         // 🚨 CAMBIO CRÍTICO: Comentamos esto para que no falle en localhost
-        // auto_return: "approved", 
+        auto_return: "approved", 
         external_reference: nuevoPedido.id,
         statement_descriptor: "H2GO TIENDA",
       }
