@@ -179,7 +179,9 @@ model Pedido {
   moneda          String         @default("PEN")
   
   estado          String         @default("PENDIENTE") // PENDIENTE, PAGADO, ENVIADO
-  
+  metodoPago      String?      
+
+
   // Datos de Envío
   nombreReceptor  String
   telefonoContact String
@@ -218,7 +220,7 @@ model Pago {
   pedido          Pedido   @relation(fields: [pedidoId], references: [id])
   
   monto           Float
-  metodoPago      String   // "IZIPAY", "YAPE"
+  metodoPago      String   
   referenciaExt   String?  
   estado          String   @default("PENDIENTE") 
   
