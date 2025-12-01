@@ -54,6 +54,82 @@ export const createRegistroController = async (req: Request, res: Response) => {
 };
 
 /**
+ * Endpoint especial para dispositivos IoT (sin autenticación JWT)
+ * POST /api/registros/iot
+ * Acepta: { usuarioId, cantidadConsumidaMl }
+ * Busca automáticamente la bebida "Agua" y crea registro tipo DIGITAL
+ */
+export const createRegistroIoTController = async (req: Request, res: Response) => {
+  try {
+    const { usuarioId, cantidadConsumidaMl } = req.body;
+
+    // Validar datos básicos
+    if (!usuarioId || !cantidadConsumidaMl) {
+      return res.status(400).json({ error: 'usuarioId y cantidadConsumidaMl son requeridos.' });
+    }
+
+    if (typeof cantidadConsumidaMl !== 'number' || cantidadConsumidaMl <= 0) {
+      return res.status(400).json({ error: 'cantidadConsumidaMl debe ser un número positivo.' });
+    }
+
+    // Verificar que el usuario existe
+    const usuario = await prisma.usuario.findUnique({
+      where: { id: usuarioId },
+    });
+
+    if (!usuario) {
+      return res.status(404).json({ error: 'Usuario no encontrado.' });
+    }
+
+    // Buscar la bebida "Agua" (case-insensitive)
+    const bebida = await prisma.bebida.findFirst({
+      where: {
+        nombre: {
+          equals: 'Agua',
+          mode: 'insensitive',
+        },
+      },
+    });
+
+    if (!bebida) {
+      return res.status(404).json({ error: 'Bebida "Agua" no encontrada en el sistema.' });
+    }
+
+    // Calcular el aporte hídrico real
+    const aporteHidricoMl = Math.round(
+      cantidadConsumidaMl * bebida.factorHidratacion,
+    );
+
+    // Crear el registro en la base de datos
+    const nuevoRegistro = await prisma.registroBebida.create({
+      data: {
+        usuarioId,
+        bebidaId: bebida.id,
+        cantidadConsumidaMl: Math.round(cantidadConsumidaMl),
+        aporteHidricoMl,
+        tipoRegistro: 'DIGITAL',
+        fechaHora: new Date(),
+      },
+      include: {
+        bebida: {
+          select: {
+            nombre: true,
+          },
+        },
+      },
+    });
+
+    res.status(201).json({
+      message: 'Registro creado exitosamente.',
+      registro: nuevoRegistro,
+    });
+  } catch (error) {
+    console.error('Error al crear registro IoT:', error);
+    res.status(500).json({ error: 'Error interno del servidor.' });
+  }
+};
+
+/**
  * Obtiene los registros de bebida del día actual
  * GET /api/registros
  */

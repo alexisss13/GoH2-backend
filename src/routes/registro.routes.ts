@@ -3,6 +3,7 @@ import { Router } from 'express';
 import {
   createRegistroController,
   getRegistrosController,
+  createRegistroIoTController,
 } from '../controllers/registro.controller';
 import { protectRoute } from '../middleware/auth.middleware';
 import { validateRequest } from '../middleware/validateRequest';
@@ -13,7 +14,10 @@ import {
 
 const router = Router();
 
-// Aplicamos el middleware de protección a todas las rutas de /registros
+// Endpoint especial para IoT (SIN autenticación JWT, debe ir ANTES del middleware protectRoute)
+router.post('/iot', createRegistroIoTController);
+
+// Aplicamos el middleware de protección a todas las demás rutas de /registros
 router.use(protectRoute);
 
 // Crear un nuevo registro
